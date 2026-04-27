@@ -1,0 +1,103 @@
+Objective:
+Notify users about job application progress (interviews, offers, rejections, next rounds) by monitoring their Gmail and sending updates via Telegram.
+
+Two flows:
+1. Scheduled: System fetches emails every X minutes (configurable by user, min 1 minute), classifies them, and sends relevant updates to the user's Telegram. Always fetches from last processed timestamp — never misses emails regardless of interval changes.
+2. On-demand: User messages the Telegram bot and instantly gets a summary of all job-related emails from the past 1 hour.
+
+
+Functional Requirements:
+
+Auth & Onboarding:
+- User logs in via Google OAuth (profile scope only — for identity).
+- User connects Gmail separately (gmail.readonly scope — for reading emails).
+- User links Telegram by sending a one-time code to the bot.
+- Cron controls are disabled until both Gmail and Telegram are connected.
+
+Cron / Monitoring:
+- User can set scan interval (minimum 1 minute, default 30 minutes).
+- User can start/stop monitoring via a toggle.
+- Changing the interval resets the timer from the update time (not the old schedule).
+- System always fetches emails since last_run_timestamp — interval changes cannot cause missed emails.
+- If the server crashes and restarts, cron resumes on time using persisted next_run_at from the database. Overdue runs fire immediately.
+
+Email Processing:
+- Stage 1: Keyword filter on subject + sender + body preview. Eliminates ~90% of emails without an LLM call.
+- Stage 2: LLM classifies survivors in a single batched call. Returns: { relevant, category, summary } per email.
+- Categories: interview_invite, offer, rejection, next_round, assessment, application_received, other.
+- Classification results are cached in Redis (24hr TTL) to avoid redundant LLM calls.
+- Notification dedup: Redis tracks notified message IDs (24hr TTL) so cron never sends the same alert twice.
+
+Notifications:
+- Cron sends Telegram messages for each new relevant email.
+- On-demand (user messages bot) returns all relevant emails from the past hour, including already-notified ones.
+- Bot responds to unregistered users with a message to sign up.
+
+Account Management:
+- User can disconnect Gmail (stops cron, clears token).
+- User can delete their account (removes all data from DB, stops cron, removes Gmail client from pool).
+
+
+Non-Functional Requirements:
+
+Security & Privacy:
+- Gmail OAuth tokens stored in SQLite, never exposed to frontend.
+- Auth via JWT stored in localStorage (not cookies — Safari blocks cross-origin cookies).
+- JWT sent as Authorization: Bearer header on all API calls.
+- No email content is persisted — only processed in memory during classification.
+- User can delete all their data at any time.
+
+Reliability:
+- Cron state (next_run_at) persisted to DB — survives server restarts.
+- LLM calls have 3x exponential backoff (1s, 2s, 4s). Failed emails are not marked as seen — retried next cycle.
+- Redis dedup failures are non-fatal — user may get a duplicate notification rather than missing one.
+- Telegram send failures are logged and skipped — next cycle retries.
+
+Performance:
+- Two-stage filter minimizes LLM usage (keyword filter is free, LLM is batched).
+- Redis caches classification results — same email is never classified twice.
+- Gmail fetch uses 20 concurrent goroutines for message retrieval.
+- Timer-based scheduler (not cron expressions) — exact control over next-run times.
+
+Scalability:
+- Multi-user: per-user Gmail client pool, per-user timers, per-user Redis key namespacing.
+- Bottleneck at scale is LLM rate limits — offset user schedules to spread load.
+- SQLite sufficient for ~100 users. Migrate to Postgres beyond that.
+
+Logging & Monitoring:
+- Structured logging via slog (JSON-capable) for all pipeline events.
+- Logged: email fetch counts, keyword filter survival rate, cache hits, LLM calls, notification sends, errors.
+- Asynq dead letter queue for exhausted on-demand task retries.
+
+UI / UX:
+- Single-page React app (Vite).
+- States: not logged in → logged in (no Gmail) → Gmail connected (no Telegram) → fully connected → monitoring active.
+- Loading indicators on all async actions.
+- Error messages shown inline (red, below the action that failed).
+- Disabled controls with hint text explaining prerequisites.
+- Live countdown to next scan, auto-refreshes after each run.
+- Delete account with confirmation dialog.
+
+
+Technical Requirements:
+
+Stack:
+- Backend: Go (chi router, asynq worker, slog logging)
+- Frontend: React (Vite), plain CSS
+- Database: SQLite (users table only — no email persistence)
+- Cache/Queue: Redis (classification cache, notification dedup, last_run_timestamp, asynq task queue, Telegram link codes)
+- LLM: Groq (Llama 3.3 70B, free tier)
+- Notifications: Telegram Bot API (free, no SDK — single HTTP POST)
+- Auth: Google OAuth (login) + Gmail OAuth (email access), JWT
+
+Configuration:
+- All secrets and URLs in .env (backend) and .env (frontend).
+- Env vars: GROQ_API_KEY, TELEGRAM_BOT_TOKEN, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, JWT_SECRET, REDIS_ADDR, BASE_URL, FRONTEND_URL, DB_PATH.
+- Frontend env: VITE_GOOGLE_CLIENT_ID, VITE_TELEGRAM_BOT_USERNAME, VITE_API_URL.
+- Changing BASE_URL and FRONTEND_URL is all that's needed for deployment.
+
+Deployment:
+- Backend: Docker (Go binary + Redis via docker-compose) on Oracle Cloud free tier or any VPS.
+- Frontend: Vercel / Netlify / Cloudflare Pages (free static hosting).
+- SQLite persisted via Docker volume.
+- Single domain for backend API; frontend on separate domain with CORS.

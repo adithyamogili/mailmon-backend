@@ -1,0 +1,63 @@
+# Compiled binaries
+*.exe
+*.out
+*.test
+bin/
+
+# Go build output
+.build/
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Database
+*.db
+*.db-journal
+*.sqlite
+*.sqlite-journal
+
+# Credentials (never commit!)
+credentials/
+*.json
+*_token.json
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+tmp/
+*.tmp
+
+# Modules
+node_modules/
+venv/
+
+# Distribution
+mailmon
+mail-cron
+mailmon
+
+
+# public/private key files
+*.key
+*.pub
+*.pem
+*.crt
+*.cer
+*.csr
+*.pfx
+*.p12
+*.key

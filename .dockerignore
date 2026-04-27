@@ -1,0 +1,6 @@
+.env
+*.db
+data/
+frontend/
+.git/
+.claude/
