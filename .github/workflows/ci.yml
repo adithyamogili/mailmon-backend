@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  # ──────────────────────────────────────────────────────────────
+  # Job 1: Lint — runs on every push and PR to main.
+  # Gates the docker job; nothing ships if lint is broken.
+  # ──────────────────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Go ────────────────────────────────────────────────────
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          # go.mod specifies 1.25.0 which is unreleased; pin to 1.24 until
+          # Go 1.25 ships and the module directive is updated.
+          # TODO: bump to go-version-file once go.mod is corrected.
+          go-version: '1.24'
+          cache: true
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+
+      # ── Frontend ──────────────────────────────────────────────
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: ESLint
+        working-directory: web
+        run: npm run lint
+
+  # ──────────────────────────────────────────────────────────────
+  # Job 2: Build & push Docker image — runs ONLY on push to main
+  # (not on PRs). Requires the lint job to pass first.
+  # ──────────────────────────────────────────────────────────────
+  docker:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    needs: lint
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          # Add DOCKERHUB_USERNAME and DOCKERHUB_TOKEN in:
+          # GitHub repo → Settings → Secrets and variables → Actions
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Produces two tags: mohit3004/mailmon:latest and mohit3004/mailmon:<short-sha>
+      # The short-sha tag makes rollbacks trivial.
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: mohit3004/mailmon
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=,format=short
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: build/Dockerfile.dev
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
