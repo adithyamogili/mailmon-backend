@@ -237,13 +237,15 @@ func (h *Handlers) HandleUpdateCron(w http.ResponseWriter, r *http.Request) {
 	interval := u.CronIntervalMinutes
 	if body.IntervalMinutes != nil {
 		allowedIntervals := map[int]bool{
-			30:  true, // 30 mins
-			60:  true, // 1 hr
-			120: true, // 2 hrs
-			180: true, // 3 hrs
+			30:   true,
+			60:   true,
+			120:  true,
+			180:  true,
+			360:  true,
+			1440: true,
 		}
 		if !allowedIntervals[*body.IntervalMinutes] {
-			jsonError(w, "invalid interval. allowed values: 30, 60, 120, 180 minutes", http.StatusBadRequest)
+			jsonError(w, "invalid interval", http.StatusBadRequest)
 			return
 		}
 		interval = *body.IntervalMinutes
