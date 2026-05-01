@@ -191,7 +191,9 @@ func (h *Handlers) HandleGmailCallback(w http.ResponseWriter, r *http.Request) {
 
 	onRefresh := func(newTok *oauth2.Token) {
 		if newJSON, err := gmail.TokenToJSON(newTok); err == nil {
-			h.userStore.UpdateGmailToken(context.Background(), userID, newJSON)
+			if err := h.userStore.UpdateGmailToken(context.Background(), userID, newJSON); err != nil {
+				slog.Error("api: background gmail token refresh update failed", "err", err)
+			}
 		}
 	}
 	if err := h.gmailPool.AddFromToken(context.Background(), userID, tok, onRefresh); err != nil {
@@ -298,17 +300,23 @@ func (h *Handlers) ResolveLinkCode(ctx context.Context, code string) (string, er
 
 func generateCode() string {
 	b := make([]byte, 3)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		slog.Error("api: crypto/rand read failed", "err", err)
+	}
 	return hex.EncodeToString(b)
 }
 
 func jsonResponse(w http.ResponseWriter, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(data)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		slog.Error("api: failed to encode json response", "err", err)
+	}
 }
 
 func jsonError(w http.ResponseWriter, msg string, status int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+	if err := json.NewEncoder(w).Encode(map[string]string{"error": msg}); err != nil {
+		slog.Error("api: failed to encode json error response", "err", err)
+	}
 }

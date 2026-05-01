@@ -67,14 +67,18 @@ func (h *Handler) HandleTelegram(w http.ResponseWriter, r *http.Request) {
 
 	// Handle /start (just greet)
 	if text == "/start" {
-		h.notifier.Send(r.Context(), chatID, "Welcome to Mail Monitor! Register at the website to get started.")
+		if err := h.notifier.Send(r.Context(), chatID, "Welcome to Mail Monitor! Register at the website to get started."); err != nil {
+			slog.Error("webhook: failed to send start message", "err", err)
+		}
 		return
 	}
 
 	// On-demand query for registered users
 	u, err := h.userStore.GetByChatID(r.Context(), chatID)
 	if err != nil || u == nil {
-		h.notifier.Send(r.Context(), chatID, "You're not registered yet. Visit the website to sign up.")
+		if err := h.notifier.Send(r.Context(), chatID, "You're not registered yet. Visit the website to sign up."); err != nil {
+			slog.Error("webhook: failed to send unregistered message", "err", err)
+		}
 		return
 	}
 
@@ -95,27 +99,37 @@ func (h *Handler) HandleTelegram(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) handleLink(r *http.Request, chatID, code string) {
 	if code == "" {
-		h.notifier.Send(r.Context(), chatID, "Usage: /link <code>")
+		if err := h.notifier.Send(r.Context(), chatID, "Usage: /link <code>"); err != nil {
+			slog.Error("webhook: failed to send usage message", "err", err)
+		}
 		return
 	}
 
 	email, err := h.linkResolver.ResolveLinkCode(r.Context(), code)
 	if err != nil {
 		slog.Error("webhook: resolve link code failed", "err", err)
-		h.notifier.Send(r.Context(), chatID, "Something went wrong. Try again.")
+		if err := h.notifier.Send(r.Context(), chatID, "Something went wrong. Try again."); err != nil {
+			slog.Error("webhook: failed to send error msg", "err", err)
+		}
 		return
 	}
 	if email == "" {
-		h.notifier.Send(r.Context(), chatID, "Invalid or expired code. Go back to the website and try again.")
+		if err := h.notifier.Send(r.Context(), chatID, "Invalid or expired code. Go back to the website and try again."); err != nil {
+			slog.Error("webhook: failed to send invalid code msg", "err", err)
+		}
 		return
 	}
 
 	if err := h.userStore.UpdateTelegramChatID(r.Context(), email, chatID); err != nil {
 		slog.Error("webhook: update chat id failed", "err", err)
-		h.notifier.Send(r.Context(), chatID, "Failed to link. Try again.")
+		if err := h.notifier.Send(r.Context(), chatID, "Failed to link. Try again."); err != nil {
+			slog.Error("webhook: failed to send update fail msg", "err", err)
+		}
 		return
 	}
 
 	slog.Info("webhook: telegram linked", "email", email, "chat_id", chatID)
-	h.notifier.Send(r.Context(), chatID, fmt.Sprintf("Linked to %s! Go back to the browser to connect Gmail.", email))
+	if err := h.notifier.Send(r.Context(), chatID, fmt.Sprintf("Linked to %s! Go back to the browser to connect Gmail.", email)); err != nil {
+		slog.Error("webhook: failed to send linked msg", "err", err)
+	}
 }

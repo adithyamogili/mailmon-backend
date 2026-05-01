@@ -27,7 +27,7 @@ func NewRouter(asynqClient *asynq.Client, userStore *user.Store, apiHandlers *ap
 	r.Get("/api/gmail/callback", apiHandlers.HandleGmailCallback)
 	r.Post("/webhook/telegram", tgHandler.HandleTelegram)
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("ok"))
+		_, _ = w.Write([]byte("ok"))
 	})
 
 	// Authenticated
