@@ -46,9 +46,8 @@ node_modules/
 venv/
 
 # Distribution
-mailmon
-mail-cron
-mailmon
+/mailmon
+/mail-cron
 
 
 # public/private key files
