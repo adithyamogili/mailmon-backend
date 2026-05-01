@@ -90,7 +90,9 @@ func main() {
 		uid := u.ID
 		onRefresh := func(newTok *oauth2.Token) {
 			if newJSON, err := gmail.TokenToJSON(newTok); err == nil {
-				userStore.UpdateGmailToken(context.Background(), uid, newJSON)
+				if updateErr := userStore.UpdateGmailToken(context.Background(), uid, newJSON); updateErr != nil {
+					slog.Error("failed to update gmail token", "user_id", u.ID, "err", updateErr)
+				}
 			}
 		}
 		if err := gmailPool.AddFromToken(context.Background(), u.ID, tok, onRefresh); err != nil {
