@@ -10,6 +10,7 @@ import (
 )
 
 type Config struct {
+	AppEnv             string
 	GroqAPIKey         string
 	TelegramBotToken   string
 	GoogleClientID     string
@@ -25,9 +26,23 @@ type Config struct {
 }
 
 func Load() (*Config, error) {
+	appEnv := os.Getenv("APP_ENV")
+	if appEnv == "" {
+		appEnv = "dev"
+	}
+
+	// godotenv.Load will NOT overwrite existing OS variables.
+	// We load environment-specific .env first, then fallback to .env
+	_ = godotenv.Load(".env." + appEnv)
 	_ = godotenv.Load()
 
+	// Refresh appEnv in case it was populated from the .env file
+	if env := os.Getenv("APP_ENV"); env != "" {
+		appEnv = env
+	}
+
 	cfg := &Config{
+		AppEnv:             appEnv,
 		GroqAPIKey:         os.Getenv("GROQ_API_KEY"),
 		TelegramBotToken:   os.Getenv("TELEGRAM_BOT_TOKEN"),
 		GoogleClientID:     os.Getenv("GOOGLE_CLIENT_ID"),

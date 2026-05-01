@@ -11,7 +11,7 @@ bin/
 .env
 .env.local
 .env.production
-
+.env*
 # Database
 *.db
 *.db-journal
