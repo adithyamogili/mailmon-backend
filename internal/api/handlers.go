@@ -77,9 +77,35 @@ func (h *Handlers) HandleGoogleLogin(w http.ResponseWriter, r *http.Request) {
 		Email:   info.Email,
 		Name:    info.Name,
 		Picture: info.Picture,
-		Keywords: []string{"interview", "offer", "assessment", "coding challenge", "onsite", "recruiter",
-			"hiring manager", "job application", "congratulations", "shortlisted", "selected", "next round",
-			"rejection", "regret"},
+		Keywords: []string{
+			// Core job-search terms
+			"interview", "interview invitation", "interview scheduled", "phone interview",
+			"video interview", "virtual interview", "technical interview", "behavioural interview",
+			"final interview", "panel interview", "hiring manager interview",
+			// Offer & compensation
+			"offer", "job offer", "employment offer", "offer letter",
+			"compensation", "salary", "pay", "payroll", "equity", "signing bonus", "relocation",
+			// Assessments & tasks
+			"assessment", "online assessment", "take-home", "take home", "coding challenge",
+			"code challenge", "hackerrank", "codility", "leetcode", "pair programming",
+			// Onsite / office visits
+			"onsite", "on-site", "office visit", "site visit", "fly-out",
+			// Recruiter / sourcer outreach
+			"recruiter", "talent acquisition", "sourcer", "headhunter",
+			"hiring manager", "hm ", "people ops", "people team",
+			// Application lifecycle
+			"job application", "application received", "application update",
+			"your application", "application status", "submitted your application",
+			// Positive outcomes
+			"congratulations", "shortlisted", "selected", "moved forward", "moving forward",
+			"next round", "next step", "next stage", "proceed", "advance",
+			// Negative outcomes
+			"rejection", "regret", "unfortunately", "not moving forward", "not selected",
+			"thank you for your interest", "we have decided", "not a match",
+			// Scheduling
+			"let's schedule", "pick a time", "book a slot", "calendly", "availability",
+			"times that work for you",
+		},
 		CronIntervalMinutes: 30,
 	}
 	if err := h.userStore.Upsert(r.Context(), u); err != nil {
