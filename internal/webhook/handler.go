@@ -4,14 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
-	"net/http"
-	"strings"
-	"time"
 	"github.com/hibiken/asynq"
 	"github.com/mohitd/mail-cron/internal/notify"
 	"github.com/mohitd/mail-cron/internal/user"
 	"github.com/mohitd/mail-cron/internal/worker"
+	"log/slog"
+	"net/http"
+	"strings"
+	"time"
 )
 
 type LinkResolver interface {
@@ -26,18 +26,18 @@ type Handler struct {
 }
 
 type telegramUpdate struct {
-	Message *telegramMessage `json:"message"`
+	Message       *telegramMessage       `json:"message"`
 	CallbackQuery *telegramCallbackQuery `json:"callback_query"`
 }
 
 type telegramCallbackQuery struct {
-	From telegramUser `json:"from"`
-	Data string `json:"data"`
+	From    telegramUser    `json:"from"`
+	Data    string          `json:"data"`
 	Message telegramMessage `json:"message"`
 }
 
 type telegramUser struct {
-	ID int64 `json:"id"`	
+	ID int64 `json:"id"`
 }
 
 type telegramMessage struct {
@@ -68,11 +68,11 @@ func (h *Handler) HandleTelegram(w http.ResponseWriter, r *http.Request) {
 	if update.Message != nil {
 		chatID = fmt.Sprintf("%d", update.Message.Chat.ID)
 		text = strings.TrimSpace(update.Message.Text)
-		slog.Info("webhook: received telegram message", "chat_id", chatID, "text", text)
+		slog.Info("webhook: received telegram message", "chat_id", chatID)
 	} else if update.CallbackQuery != nil {
 		chatID = fmt.Sprintf("%d", update.CallbackQuery.Message.Chat.ID)
 		text = update.CallbackQuery.Data
-		slog.Info("webhook: received telegram callback query", "chat_id", chatID, "data", text)
+		slog.Info("webhook: received telegram callback query", "chat_id", chatID)
 	}
 
 	w.WriteHeader(http.StatusOK)

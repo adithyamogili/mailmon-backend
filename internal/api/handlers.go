@@ -175,17 +175,32 @@ func (h *Handlers) HandleGmailConnect(w http.ResponseWriter, r *http.Request) {
 		Scopes:       []string{gmailapi.GmailReadonlyScope},
 		RedirectURL:  h.baseURL + "/api/gmail/callback",
 	}
-	url := cfg.AuthCodeURL(userID, oauth2.AccessTypeOffline, oauth2.ApprovalForce)
+	state := generateCode() + generateCode()
+
+	if err := h.rdb.Set(r.Context(), "oauthstate:"+state, userID, 10*time.Minute).Err(); err != nil {
+		jsonError(w, "failed to create oauth state", http.StatusInternalServerError)
+		return
+	}
+
+	url := cfg.AuthCodeURL(state, oauth2.AccessTypeOffline, oauth2.ApprovalForce)
 	jsonResponse(w, map[string]string{"url": url})
 }
 
 func (h *Handlers) HandleGmailCallback(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
-	userID := r.URL.Query().Get("state")
-	if code == "" || userID == "" {
+	state := r.URL.Query().Get("state")
+	if code == "" || state == "" {
 		http.Error(w, "missing code or state", http.StatusBadRequest)
 		return
 	}
+
+	userID, err := h.rdb.Get(r.Context(), "oauthstate:"+state).Result()
+	if err != nil {
+		http.Error(w, "invalid or expired state", http.StatusBadRequest)
+		return
+	}
+
+	h.rdb.Del(r.Context(), "oauthstate:"+state)
 
 	cfg := &oauth2.Config{
 		ClientID:     h.googleClientID,
@@ -195,7 +210,7 @@ func (h *Handlers) HandleGmailCallback(w http.ResponseWriter, r *http.Request) {
 		RedirectURL:  h.baseURL + "/api/gmail/callback",
 	}
 
-	tok, err := cfg.Exchange(context.Background(), code)
+	tok, err := cfg.Exchange(r.Context(), code)
 	if err != nil {
 		slog.Error("api: gmail oauth exchange failed", "err", err)
 		http.Redirect(w, r, h.frontendURL+"?error=gmail_auth_failed", http.StatusFound)

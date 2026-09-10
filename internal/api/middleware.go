@@ -23,6 +23,9 @@ func AuthMiddleware(jwtSecret string) func(http.Handler) http.Handler {
 			}
 
 			token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
+				if t.Method != jwt.SigningMethodHS256 {
+					return nil, jwt.ErrSignatureInvalid
+				}
 				return []byte(jwtSecret), nil
 			})
 			if err != nil || !token.Valid {

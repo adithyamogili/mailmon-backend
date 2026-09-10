@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 type googleUserInfo struct {
@@ -18,7 +19,11 @@ type googleUserInfo struct {
 // verifyGoogleIDToken verifies a Google Sign-In ID token (JWT credential)
 // using Google's tokeninfo endpoint and returns user info.
 func verifyGoogleIDToken(idToken, expectedClientID string) (*googleUserInfo, error) {
-	resp, err := http.Get("https://oauth2.googleapis.com/tokeninfo?id_token=" + url.QueryEscape(idToken))
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	resp, err := client.Get(
+		"https://oauth2.googleapis.com/tokeninfo?id_token=" + url.QueryEscape(idToken),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("verifyGoogleIDToken: %w", err)
 	}

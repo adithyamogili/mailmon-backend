@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"time"
 )
 
 type TelegramNotifier struct {
@@ -18,7 +19,7 @@ type TelegramNotifier struct {
 func NewTelegram(botToken string) *TelegramNotifier {
 	return &TelegramNotifier{
 		botToken: botToken,
-		client:   &http.Client{},
+		client:   &http.Client{Timeout: 10 * time.Second},
 	}
 }
 

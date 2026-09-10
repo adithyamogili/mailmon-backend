@@ -3,21 +3,38 @@ package gmail
 import "strings"
 
 func KeywordFilter(emails []Email, keywords []string) []Email {
-	var matched []Email
-	for _, e := range emails {
-		subjectLower := strings.ToLower(e.Subject)
-		bodyLower := strings.ToLower(e.BodyPreview)
-		fromLower := strings.ToLower(e.From)
+	if len(emails) == 0 || len(keywords) == 0 {
+		return nil
+	}
 
-		for _, kw := range keywords {
-			kwLower := strings.ToLower(kw)
-			if strings.Contains(subjectLower, kwLower) ||
-				strings.Contains(bodyLower, kwLower) ||
-				strings.Contains(fromLower, kwLower) {
-				matched = append(matched, e)
+	normalizedKeywords := make([]string, 0, len(keywords))
+	for _, keyword := range keywords {
+		keyword = strings.TrimSpace(strings.ToLower(keyword))
+		if keyword != "" {
+			normalizedKeywords = append(normalizedKeywords, keyword)
+		}
+	}
+
+	if len(normalizedKeywords) == 0 {
+		return nil
+	}
+
+	matched := make([]Email, 0)
+
+	for _, email := range emails {
+		subject := strings.ToLower(email.Subject)
+		body := strings.ToLower(email.BodyPreview)
+		from := strings.ToLower(email.From)
+
+		for _, keyword := range normalizedKeywords {
+			if strings.Contains(subject, keyword) ||
+				strings.Contains(body, keyword) ||
+				strings.Contains(from, keyword) {
+				matched = append(matched, email)
 				break
 			}
 		}
 	}
+
 	return matched
 }

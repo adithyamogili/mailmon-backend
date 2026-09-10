@@ -36,12 +36,26 @@ func buildBatchUserPrompt(inputs []EmailInput) string {
 
 var jsonArrayRegex = regexp.MustCompile(`\[[\s\S]*\]`)
 
+var validCategories = map[string]bool{
+	"interview_invite":     true,
+	"offer":                true,
+	"rejection":            true,
+	"next_round":           true,
+	"assessment":           true,
+	"application_received": true,
+	"other":                true,
+}
+
 func parseBatchClassification(raw string, expected int) ([]Classification, error) {
 	raw = strings.TrimSpace(raw)
 
 	var results []Classification
+
 	if err := json.Unmarshal([]byte(raw), &results); err == nil {
 		if len(results) == expected {
+			if err := validateClassifications(results); err != nil {
+				return nil, err
+			}
 			return results, nil
 		}
 	}
@@ -51,12 +65,40 @@ func parseBatchClassification(raw string, expected int) ([]Classification, error
 		var results []Classification
 		if err := json.Unmarshal([]byte(match), &results); err == nil {
 			if len(results) == expected {
+				if err := validateClassifications(results); err != nil {
+					return nil, err
+				}
 				return results, nil
 			}
 		}
 	}
 
-	return nil, fmt.Errorf("classifier: could not parse batch response (expected %d results): %s", expected, truncate(raw, 300))
+	return nil, fmt.Errorf(
+		"classifier: could not parse batch response (expected %d results): %s",
+		expected,
+		truncate(raw, 300),
+	)
+}
+
+func validateClassifications(results []Classification) error {
+	for i, result := range results {
+		if !validCategories[result.Category] {
+			return fmt.Errorf(
+				"classifier: invalid category %q at result %d",
+				result.Category,
+				i+1,
+			)
+		}
+
+		if !result.Relevant && result.Category != "other" {
+			return fmt.Errorf(
+				"classifier: non-relevant result %d must use category \"other\"",
+				i+1,
+			)
+		}
+	}
+
+	return nil
 }
 
 func truncate(s string, n int) string {

@@ -85,7 +85,11 @@ func (g *GroqClassifier) ClassifyBatch(ctx context.Context, inputs []EmailInput)
 		if err != nil {
 			lastErr = fmt.Errorf("classifier.GroqClassifyBatch: attempt %d: %w", attempt+1, err)
 			slog.Warn("groq call failed, retrying", "attempt", attempt+1, "err", err)
-			time.Sleep(wait)
+			select {
+			case <-time.After(wait):
+			case <-ctx.Done():
+				return nil, fmt.Errorf("classifier.GroqClassifyBatch: context cancelled: %w", ctx.Err())
+			}
 			continue
 		}
 
@@ -93,27 +97,43 @@ func (g *GroqClassifier) ClassifyBatch(ctx context.Context, inputs []EmailInput)
 		resp.Body.Close()
 		if err != nil {
 			lastErr = fmt.Errorf("classifier.GroqClassifyBatch: attempt %d: read body: %w", attempt+1, err)
-			time.Sleep(wait)
+			select {
+			case <-time.After(wait):
+			case <-ctx.Done():
+				return nil, fmt.Errorf("classifier.GroqClassifyBatch: context cancelled: %w", ctx.Err())
+			}
 			continue
 		}
 
 		if resp.StatusCode != http.StatusOK {
 			lastErr = fmt.Errorf("classifier.GroqClassifyBatch: attempt %d: status %d: %s", attempt+1, resp.StatusCode, string(respBody))
 			slog.Warn("groq call failed, retrying", "attempt", attempt+1, "status", resp.StatusCode)
-			time.Sleep(wait)
+			select {
+			case <-time.After(wait):
+			case <-ctx.Done():
+				return nil, fmt.Errorf("classifier.GroqClassifyBatch: context cancelled: %w", ctx.Err())
+			}
 			continue
 		}
 
 		var chatResp chatResponse
 		if err := json.Unmarshal(respBody, &chatResp); err != nil {
 			lastErr = fmt.Errorf("classifier.GroqClassifyBatch: attempt %d: unmarshal response: %w", attempt+1, err)
-			time.Sleep(wait)
+			select {
+			case <-time.After(wait):
+			case <-ctx.Done():
+				return nil, fmt.Errorf("classifier.GroqClassifyBatch: context cancelled: %w", ctx.Err())
+			}
 			continue
 		}
 
 		if len(chatResp.Choices) == 0 {
 			lastErr = fmt.Errorf("classifier.GroqClassifyBatch: attempt %d: no choices", attempt+1)
-			time.Sleep(wait)
+			select {
+			case <-time.After(wait):
+			case <-ctx.Done():
+				return nil, fmt.Errorf("classifier.GroqClassifyBatch: context cancelled: %w", ctx.Err())
+			}
 			continue
 		}
 
@@ -121,7 +141,11 @@ func (g *GroqClassifier) ClassifyBatch(ctx context.Context, inputs []EmailInput)
 		results, err := parseBatchClassification(text, len(inputs))
 		if err != nil {
 			lastErr = fmt.Errorf("classifier.GroqClassifyBatch: attempt %d: %w", attempt+1, err)
-			time.Sleep(wait)
+			select {
+			case <-time.After(wait):
+			case <-ctx.Done():
+				return nil, fmt.Errorf("classifier.GroqClassifyBatch: context cancelled: %w", ctx.Err())
+			}
 			continue
 		}
 

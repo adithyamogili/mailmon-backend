@@ -80,7 +80,11 @@ func (c *Client) FetchSince(ctx context.Context, since time.Time) ([]Email, erro
 		wg.Add(1)
 		go func(msgID string) {
 			defer wg.Done()
-			sem <- struct{}{}
+			select {
+			case sem <- struct{}{}:
+			case <-ctx.Done():
+				return
+			}
 			defer func() { <-sem }()
 
 			msg, err := c.svc.Users.Messages.Get("me", msgID).Format("full").Context(ctx).Do()
